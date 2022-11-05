@@ -24,8 +24,7 @@ fn lookup(rapdu: &[u8]) -> String {
 }
 
 fn send_apdu(card: &Card, apdu: &[u8]) -> Vec<u8> {
-    println!("APDU: {:X?}", apdu);
-
+    
     let mut res_buf = [0; MAX_BUFFER_SIZE];
     let res = match card.transmit(apdu, &mut res_buf) {
         Ok(res) => res,
@@ -35,12 +34,18 @@ fn send_apdu(card: &Card, apdu: &[u8]) -> Vec<u8> {
             // std::process::exit(1);
         }
     };
-
+    
     let res = res.to_vec();
     // res_codes.clone_from_slice(res);
     
-    println!("RAPDU: {:X?}", res);
-    println!("RAPDU TEXT: {}", lookup(&res));
+    let res_lookup = lookup(&res);
+
+    if res[0] != 0x6a {
+    // if res_lookup != "File not found" && res_lookup != "Incorrect P1 or P2 parameter." {
+        println!("APDU: {:X?}", apdu);
+        println!("RAPDU: {:X?}", res);
+        // println!("RAPDU TEXT: {}", res_lookup);
+    }
     // println!("FULL RESPONSE: {:X?}", res_buf);
 
 
@@ -90,11 +95,6 @@ fn main() {
         }
     };
 
-    // send_apdu(&card, b"\x00\xA4\x04\x00\x07\xA0\x00\x00\x00\x03\x10\x10\x00"); // VISA?
-    // send_apdu(&card, b"\x00\xA4\x04\x00\x07\xA0\x00\x00\x00\x25\x00\x00\x00"); // A1
-    // send_apdu(&card, b"\x00\xA4\x04\x00\x07\xA0\x00\x00\x00\x25\x01\x04\x02\x00"); // A1
-    // send_apdu(&card, b"\x00\xA4\x04\x00\x07\xA0\x00\x00\x00\x25\x01\x00"); // A1
-
     let class_byte: &[u8] = &[0x00];
     let select: &[u8] = &[0xA4]; // Select command
     let read_record: &[u8] = &[0xB2]; // Select command
@@ -104,73 +104,18 @@ fn main() {
     let p2: &[u8] = &[0x00]; // Leave empty
     let le: &[u8] = &[0x00];
 
-    // let aid = "2PAY.SYS.DDF01".as_bytes();
 
     let p1_better: &[u8] = &[0x04];
     let p2_better: &[u8] = &[0x00];
-    // let aid = b"\xA0\x00\x00\x00\x65\x10\x10";
-    // let aid = 0xA0000000031010u64.to_be_bytes();
-    // println!("AID: {:X?}", aid);
-    // println!("AID: {:?}", aid);
-    
-    // let apdu = [class_byte, select, p1, p2, le].concat();
-    // let apdu = [class_byte, instruction_byte, p1, p2, &aid, le].concat();
-    // let apdu: Vec<u8> = [&[0x00u8], &[0xa4u8], &[0x04u8], &[0x00u8], &aid, &[0x00]].concat();
-    
-    // let rec = &[0x02];
-    // let sfi:u8 = (1 << 3) | 4;
-    // let sfi = &[sfi];
-
-    // let apdu = b"\x00\xA4\x04\x00\x0E\x31\x50\x41\x59\x2E\x53\x59\x53\x2E\x44\x44\x46\x30\x31"; // SELECT FILE 1PAY.SYS.DDF01
-    // send_apdu(&card, apdu);
-    
-    // let apdu = b"\x80\xCA\x9F\x17\x00"; // PIN TRY COUNTER
-    // let a1 = [0x00];
-    // let a2 = [0x20];
-    // let a3 = [0x00];
-    // let a4 = [0x00];
-
-    // for i in 0x01u8..0x9f {
-    //     let a1 = [0x00];
-    //     let a2 = [0x20];
-    //     let a3 = [0x00];
-    //     let a4 = [0x00];
-         
-    //     let apdu = [a1, a2, a3, [i], a4].concat(); // PIN TRY COUNTER
-    //     send_apdu(&card, &apdu);
-    // }
-
-    // let apdu = [a1, a2, a3, [0x9f], a4].concat(); // PIN TRY COUNTER
-    // send_apdu(&card, &apdu);
-
-
-    // let apdu = b"\x00\x20\x00\x81\x04\x31\x32\x33\x34"; // VERIFY PIN
-    // let apdu = b"\x00\x20\x00\x80\x08\x24\x12\x34\x01\x02\x03\x04\x05"; // VERIFY PIN
-
-    // let apdu = b"\x00\xA4\x04\x00\x0E\x31\x50\x41\x59\x2E\x53\x59\x53\x2E\x44\x44\x46\x30\x31"; // SELECT FILE 1PAY.SYS.DDF01
-    // send_apdu(&card, apdu);
-    
-    // let apdu = b"\x00\xB2\x04\x14\x00"; // GET SF"
-    // send_apdu(&card, apdu);
-    // std::process::exit(0);
 
     println!("");
     println!("SELECT");
     println!("");
     
-    // let aid = b"\xA0\x00\x00\x00\x65\x10\x10";
     let aid = b"\xA0\x00\x00\x00\x25";
     let lc: &[u8] = &[0x05];
     let apdu = [class_byte, select, p1_better, p2_better, lc, aid, le].concat();
     // send_apdu(&card, &apdu);
-
-    // println!("");
-    // println!("PROCESSING");
-    // println!("");
-    
-    // let apdu = b"\x80\xA8\x00\x00\x04\x83\x02\x55\x00";
-    // send_apdu(&card, apdu);
-    // std::process::exit(0);
 
     println!("");
     println!("READ");
@@ -179,15 +124,15 @@ fn main() {
     let mut data:Vec<String> = Vec::new();
 
     let mut i = 0;
-    for sfi in 1u8..32 {
+    for sfi in 1u8..4 {
         for rec in 1u8..17 {
             
             let sfi_mod = (sfi << 3) | 4;
             let apdu = [class_byte, read_record, &[rec], &[sfi_mod], le].concat();
             
-            println!("");
-            println!("FIND:");
-            println!("");
+            // println!("");
+            // println!("FIND:");
+            // println!("");
             let res = send_apdu(&card, &apdu);
             let le: &[u8] = &[res[1]];
             let get_response_apdu = [class_byte, get_response, p1, p2, le].concat();
@@ -204,9 +149,9 @@ fn main() {
                 }
             }
 
-            println!("");
-            println!("------");
-            println!("");
+            // println!("");
+            // println!("------");
+            // println!("");
         }
     }
 
@@ -216,85 +161,4 @@ fn main() {
     }
     
     print!("{}", i);
-    // for i in 0u16..65535 {
-    //     if i % 100 == 0 {
-    //         println!("{:?}", i);
-    //     }
-    //     let id = i.to_le_bytes();
-    //     let apdu: Vec<u8> = [class_byte, instruction_byte, p1, p2, lc, &id, le].concat();
-    //     // let apdu: Vec<u8> = [class_byte, instruction_byte, p1, p2, &asd, le].concat();
-    //     // println!("APDU command: {:x?}", apdu);
-        
-    //     let mut res_buf = [0; MAX_BUFFER_SIZE];
-    //     let res = match card.transmit(&apdu, &mut res_buf) {
-    //         Ok(res) => res,
-    //         Err(err) => {
-    //             eprintln!("Failed to transmit APDU command to card: {}", err);
-    //             std::process::exit(1);
-    //         }
-    //     };
-        
-    //     // println!("{:x} - {:x}", res[0], res[1]);
-
-    //     if format!("{:X}", res[0]) != "6A" || format!("{:X}", res[1]) != "6A" {
-    //         println!("AAAAAAAAA: {:?}", i);
-    //         std::process::exit(0);
-    //     }
-    //     // println!("Res: {:x?}", res);
-    //     // println!("Buffer: {:x?}", res_buf);
-    // }
-
-    // let mut res_buf2 = [0; MAX_BUFFER_SIZE];
-    // for sfi in 1..32 {
-    //     for rec in 1..17 {
-    //         println!("{:?}, {:?}", sfi, rec);
-
-    //         let a1: &[u8] = &[0x00];
-    //         let a2: &[u8] = &[0xB2];
-    //         let a3: &[u8] = &[rec];
-    //         let a4: &[u8] = &[(sfi << 3) | 4];
-    //         let a5: &[u8] = &[0x00];
-    //         let apdu2: Vec<u8> = [a1, a2, a3, a4, a5].concat();
-    //         let tlv = match tran.transmit(&apdu2, &mut res_buf2) {
-    //             Ok(res2) => res2,
-    //             Err(err) => {
-    //                 eprintln!("APUA: {}", err);
-    //                 std::process::exit(1);
-    //             }
-    //         };
-
-    //         println!("{:x?}", tlv);
-    //     }
-    // }
-
-    // let tran = match card.transaction() {
-    //     Ok(tran) => tran,
-    //     Err(err) => {
-    //         eprintln!("Failed to establish connection to card: {}", err);
-    //         std::process::exit(1);
-    //     }
-    // };
-
-    // let attr_len: usize = tran.get_attribute_len(Attribute::VendorName).unwrap();
-    // println!("{:?}", attr_len);
-    
-    // let mut buffer = [0; MAX_BUFFER_SIZE];
-    // let attr = tran.get_attribute(Attribute::VendorName, &mut buffer).unwrap();
-    // println!("{:x?}", attr);
-
-
-
-    // Send an APDU command.
-    // let apdu = b"\x80\xca\x9f\x4f\x00";
-    // // let apdu = b"\x00\xa4\x04\x00\x0A\xA0\x00\x00\x00\x62\x03\x01\x0C\x06\x01";
-    // println!("Sending APDU: {:?}", apdu);
-    // let mut rapdu_buf = [0; MAX_BUFFER_SIZE];
-    // let rapdu = match card.transmit(apdu, &mut rapdu_buf) {
-    //     Ok(rapdu) => rapdu,
-    //     Err(err) => {
-    //         eprintln!("Failed to transmit APDU command to card: {}", err);
-    //         std::process::exit(1);
-    //     }
-    // };
-    // println!("APDU response: {:?}", rapdu);
 }
