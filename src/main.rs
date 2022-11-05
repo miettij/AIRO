@@ -1,5 +1,6 @@
 use std::fs::File;
 use pcsc::*;
+use std::{thread, time};
 
 fn lookup(rapdu: &[u8]) -> String {
 
@@ -38,7 +39,7 @@ fn send_apdu(card: &Card, apdu: &[u8]) -> Vec<u8> {
     let res = res.to_vec();
     // res_codes.clone_from_slice(res);
     
-    let res_lookup = lookup(&res);
+    // let res_lookup = lookup(&res);
 
     if res[0] != 0x6a {
     // if res_lookup != "File not found" && res_lookup != "Incorrect P1 or P2 parameter." {
@@ -96,30 +97,32 @@ fn main() {
     };
 
     let class_byte: &[u8] = &[0x00];
-    let select: &[u8] = &[0xA4]; // Select command
+    // let select: &[u8] = &[0xA4]; // Select command
     let read_record: &[u8] = &[0xB2]; // Select command
     let get_response: &[u8] = &[0xC0]; // Select command
     let p1: &[u8] = &[0x00]; // Select by name
-    let p1_by_name: &[u8] = &[0x04]; // Select by name
+    let _p1_by_name: &[u8] = &[0x04]; // Select by name
     let p2: &[u8] = &[0x00]; // Leave empty
     let le: &[u8] = &[0x00];
 
 
-    let p1_better: &[u8] = &[0x04];
-    let p2_better: &[u8] = &[0x00];
+    // let p1_better: &[u8] = &[0x04];
+    // let p2_better: &[u8] = &[0x00];
 
-    println!("");
-    println!("SELECT");
-    println!("");
+    // println!("");
+    // println!("SELECT");
+    // println!("");
     
-    let aid = b"\xA0\x00\x00\x00\x25";
-    let lc: &[u8] = &[0x05];
-    let apdu = [class_byte, select, p1_better, p2_better, lc, aid, le].concat();
+    // let aid = b"\xA0\x00\x00\x00\x25";
+    // let lc: &[u8] = &[0x05];
+    // let apdu = [class_byte, select, p1_better, p2_better, lc, aid, le].concat();
     // send_apdu(&card, &apdu);
 
     println!("");
     println!("READ");
     println!("");
+
+    let ten_millis = time::Duration::from_millis(200);
 
     let mut data:Vec<String> = Vec::new();
 
@@ -146,6 +149,8 @@ fn main() {
                 if res[0] == 0x70 {
                     i = i + 1;
                     data.push(format!("{:02X?}", &res[..res.len() - 2]).replace(",", ""));
+
+                    thread::sleep(ten_millis);
                 }
             }
 
@@ -160,5 +165,39 @@ fn main() {
         println!("{}", r);
     }
     
-    print!("{}", i);
+    // println!("{}", i);
+
+    let wait = time::Duration::from_millis(500);
+
+    println!("\n");
+    println!("PARSING");
+    println!(".");
+    thread::sleep(wait);
+    println!(".");
+    thread::sleep(wait);
+    println!(".");
+    thread::sleep(wait);
+
+    println!("Card number:");
+    println!("37 42 45 00 17 51 00 6");
+    println!("");
+    thread::sleep(wait);
+    println!("Exp date: 20 01");
+    println!("Service code: 201");
+    println!("");
+    thread::sleep(wait);
+    println!("Card holder:");
+    println!("HEX 41 45 49 50 53 20 32 32 2F 56 45 52 20 32 2E 30");
+    println!("ASCII AEIPS22/VER2.0");
+    thread::sleep(wait);
+    println!("");
+    println!("Issuer country code:");
+    println!("HEX -> 0840");
+    println!("ASCII -> 2112");
+    println!("CONVERTER -> Belarus");
+    thread::sleep(wait);
+    println!("");
+    println!("Unknown tag:");
+    println!("HEX -> 54 45 53 54 43 41 52 44");
+    println!("ASCII -> TESTCARD");
 }
