@@ -1,7 +1,7 @@
 ﻿SW1;SW2;Info/Warning/Error/Security;Description
 6;;E;Class not supported.
 61;—;I;Response bytes still available
-61;XX;I;"Command successfully executed; ‘XX’ bytes of data are available and can be requested using GET RESPONSE."
+61;XX;I;Command successfully executed; ‘XX’ bytes of data are available and can be requested using GET RESPONSE.
 62;—;W;State of non-volatile memory unchanged
 62;0;W;No information given (NV-Ram not changed)
 62;1;W;NV-Ram not changed 1.
