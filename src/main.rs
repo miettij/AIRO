@@ -2,7 +2,6 @@ use std::fs::File;
 use pcsc::*;
 
 fn lookup(rapdu: &[u8]) -> String {
-// fn lookup(rapdu: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
 
     let file = File::open("./src/responses.csv").unwrap();
 
@@ -21,23 +20,31 @@ fn lookup(rapdu: &[u8]) -> String {
         }
     }
 
-    return String::from("ERROR: No lookup match found!");
-    // Ok(())
+    return String::from("");
 }
 
-fn send_apdu(card: Card, apdu: &[u8]) {
+fn send_apdu(card: &Card, apdu: &[u8]) -> Vec<u8> {
+    println!("APDU: {:X?}", apdu);
+
     let mut res_buf = [0; MAX_BUFFER_SIZE];
     let res = match card.transmit(apdu, &mut res_buf) {
         Ok(res) => res,
         Err(err) => {
             eprintln!("Failed to transmit APDU command to card: {}", err);
-            std::process::exit(1);
+            return [0x00, 0x00].to_vec();
+            // std::process::exit(1);
         }
     };
+
+    let res = res.to_vec();
+    // res_codes.clone_from_slice(res);
     
-    println!("APDU: {:?}", apdu);
-    println!("RAPDU: {:X} {:X}", res[0], res[1]);
+    println!("RAPDU: {:X?}", res);
     println!("RAPDU TEXT: {}", lookup(&res));
+    // println!("FULL RESPONSE: {:X?}", res_buf);
+
+
+    return res;
 }
 
 fn main() {
@@ -71,7 +78,7 @@ fn main() {
     println!("Using reader: {:?}", reader);
 
     // Connect to the card.
-    let mut card = match ctx.connect(reader, ShareMode::Shared, Protocols::ANY) {
+    let card = match ctx.connect(reader, ShareMode::Shared, Protocols::ANY) {
         Ok(card) => card,
         Err(Error::NoSmartcard) => {
             println!("A smartcard is not present in the reader.");
@@ -83,37 +90,85 @@ fn main() {
         }
     };
 
-    // let tran = match card.transaction() {
-    //     Ok(tran) => tran,
-    //     Err(err) => {
-    //         eprintln!("Failed to establish connection to card: {}", err);
-    //         std::process::exit(1);
-    //     }
-    // };
-
-    // let attr_len: usize = tran.get_attribute_len(Attribute::VendorName).unwrap();
-    // println!("{:?}", attr_len);
-    
-    // let mut buffer = [0; MAX_BUFFER_SIZE];
-    // let attr = tran.get_attribute(Attribute::VendorName, &mut buffer).unwrap();
-    // println!("{:x?}", attr);
-
     let class_byte: &[u8] = &[0x00];
-    let instruction_byte: &[u8] = &[0xA4]; // Select command
+    let select: &[u8] = &[0xA4]; // Select command
+    let read_record: &[u8] = &[0xB2]; // Select command
+    let get_response: &[u8] = &[0xC0]; // Select command
     let p1: &[u8] = &[0x00]; // Select by name
-    // let p1: &[u8] = &[0x04]; // Select by name
+    let p1_by_name: &[u8] = &[0x04]; // Select by name
     let p2: &[u8] = &[0x00]; // Leave empty
-    let lc: &[u8] = &[0x02]; // Get max len
-    // let aid = &[0x31, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31];
-    // let aid = "1PAY.SYS.DDF01".as_bytes();
-    // let aid = "A0000000049999".as_bytes();
-    // let id = &[0x00, 0x03];
     let le: &[u8] = &[0x00];
 
-    let apdu_master = &[0x00, 0xa4, 0x00, 0x00, 0x00];
+    let aid = "2PAY.SYS.DDF01".as_bytes();
+    // let aid = 0xA0000000031010u64.to_be_bytes();
+    // println!("AID: {:X?}", aid);
+    // println!("AID: {:?}", aid);
 
-    send_apdu(card, apdu_master);
+    // let apdu = [class_byte, select, p1, p2, le].concat();
+    // let apdu = [class_byte, instruction_byte, p1, p2, &aid, le].concat();
+    // let apdu: Vec<u8> = [&[0x00u8], &[0xa4u8], &[0x04u8], &[0x00u8], &aid, &[0x00]].concat();
+
+    // let rec = &[0x02];
+    // let sfi:u8 = (1 << 3) | 4;
+    // let sfi = &[sfi];
+
+    println!("");
+    println!("SELECT");
+    println!("");
+
+    let apdu = [class_byte, select, p1_by_name, p2, &aid, le].concat();
+    send_apdu(&card, &apdu);
+
+    println!("");
+    println!("READ");
+    println!("");
+
+    let mut data:Vec<String> = Vec::new();
+
+    let mut i = 0;
+    for sfi in 1u8..32 {
+        for rec in 1u8..17 {
+    // for sfi in 1u8..32 {
+    //     for rec in 1u8..17 {
+            
+            let sfi_mod = (sfi << 3) | 4;
+            let apdu = [class_byte, read_record, &[rec], &[sfi_mod], le].concat();
+            
+            println!("");
+            println!("FIND:");
+            println!("");
+            let res = send_apdu(&card, &apdu);
+            let le: &[u8] = &[res[1]];
+            let get_response_apdu = [class_byte, get_response, p1, p2, le].concat();
+            
+            if res[0] == 0x61 {
+                println!("");
+                println!("GET:");
+                println!("");
+                let res = send_apdu(&card, &get_response_apdu);
+                
+                if res[0] == 0x70 {
+                    i = i + 1;
+                    data.push(format!("{:02X?}", &res[..res.len() - 2]).replace(",", ""));
+                }
+                // let tlv = Tlv::from_vec( &res[..res.len() - 2] ).unwrap();
+
+                // println!("TLV VAL: {:?}", tlv.val().to_vec())
+            }
+            
+
+            println!("");
+            println!("------");
+            println!("");
+        }
+    }
+
+    for r in data {
+        print!("\n");
+        println!("{}", r);
+    }
     
+    print!("{}", i);
     // for i in 0u16..65535 {
     //     if i % 100 == 0 {
     //         println!("{:?}", i);
@@ -164,6 +219,21 @@ fn main() {
     //         println!("{:x?}", tlv);
     //     }
     // }
+
+    // let tran = match card.transaction() {
+    //     Ok(tran) => tran,
+    //     Err(err) => {
+    //         eprintln!("Failed to establish connection to card: {}", err);
+    //         std::process::exit(1);
+    //     }
+    // };
+
+    // let attr_len: usize = tran.get_attribute_len(Attribute::VendorName).unwrap();
+    // println!("{:?}", attr_len);
+    
+    // let mut buffer = [0; MAX_BUFFER_SIZE];
+    // let attr = tran.get_attribute(Attribute::VendorName, &mut buffer).unwrap();
+    // println!("{:x?}", attr);
 
 
 
